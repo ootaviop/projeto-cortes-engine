@@ -1,0 +1,43 @@
+# AUDIOANALYZER MODULE DEPENDENCIES
+# Dependências específicas do módulo de análise semântica de áudio
+# Compatible with Python 3.8+
+
+# Core ML and Audio Processing
+openai-whisper>=20231117
+torch>=2.0.0
+transformers>=4.30.0
+sentence-transformers>=2.2.0
+
+# Audio Processing
+ffmpeg-python>=0.2.0
+
+# Language Detection and NLP
+langdetect>=1.0.9
+
+# Scientific Computing
+numpy>=1.24.0
+scipy>=1.10.0
+scikit-learn>=1.3.0
+
+# Data Processing and Analysis
+pandas>=2.0.0
+
+# Progress Bars and CLI
+tqdm>=4.65.0
+argparse  # Built-in, but explicit for documentation
+
+# System Monitoring (for memory management)
+psutil>=5.9.0
+
+# Development and Testing (optional)
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Additional utilities
+pathlib2>=2.3.7; python_version<"3.4"  # Compatibility for older Python
+
+# Optional: Enhanced audio analysis (if needed for advanced features)
+# librosa>=0.10.0  # Uncomment if advanced audio features are needed
+
+# Note: Some dependencies are also used by CORE-DOWNLOADER module
+# Ensure compatibility when installing both modules
