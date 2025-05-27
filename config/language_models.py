@@ -36,7 +36,7 @@ class LanguageModels:
     PORTUGUESE_MODELS = {
         "sentiment": ModelConfig(
             name="pt_sentiment",
-            model_id="neuralmind/bert-base-portuguese-cased",
+            model_id="cardiffnlp/twitter-xlm-roberta-base-sentiment",
             task="sentiment-analysis",
             confidence_threshold=0.75
         ),
@@ -48,7 +48,7 @@ class LanguageModels:
         ),
         "emotion": ModelConfig(
             name="pt_emotion",
-            model_id="neuralmind/bert-base-portuguese-cased",
+            model_id="cardiffnlp/twitter-xlm-roberta-base-sentiment",
             task="text-classification",
             confidence_threshold=0.6
         )

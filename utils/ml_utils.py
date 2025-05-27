@@ -311,7 +311,7 @@ def get_text_embeddings(texts: List[str], language: str = "pt") -> List[List[flo
 
 def analyze_sentiment(texts: List[str], language: str = "pt") -> List[Dict[str, Any]]:
     """
-    Analisa sentimentos de lista de textos.
+    Analisa sentimentos de lista de textos com pysentimiento para PT-BR.
     
     Args:
         texts: Lista de textos
@@ -320,15 +320,51 @@ def analyze_sentiment(texts: List[str], language: str = "pt") -> List[Dict[str, 
     Returns:
         Lista de análises de sentimento
     """
+    # Usa pysentimiento para português brasileiro
+    if language == "pt" and PYSENTIMIENTO_AVAILABLE:
+        try:
+            analyzer = create_analyzer(task="sentiment", lang="pt")
+            normalized_results = []
+            
+            for text in texts:
+                try:
+                    result = analyzer.predict(text)
+                    
+                    # Converte pysentimiento output para formato padrão
+                    label = result.output
+                    score = max(result.probas.values())  # Maior probabilidade
+                    
+                    # Mapeia labels do pysentimiento
+                    label_map = {"POS": "positive", "NEG": "negative", "NEU": "neutral"}
+                    
+                    normalized_results.append({
+                        'label': label_map.get(label, label.lower()),
+                        'score': score,
+                        'confidence': score,
+                        'probas': result.probas  # Mantém probabilidades originais
+                    })
+                except Exception as e:
+                    print(f"⚠️ Erro pysentimiento: {e}")
+                    normalized_results.append({
+                        'label': 'neutral',
+                        'score': 0.5,
+                        'confidence': 0.5
+                    })
+            
+            return normalized_results
+            
+        except Exception as e:
+            print(f"⚠️ Erro ao carregar pysentimiento: {e}")
+    
+    # Fallback para modelos padrão
     model = get_model_for_language_and_task(language, "sentiment")
     
-    # Processa cada texto individualmente para evitar erros de batch
     normalized_results = []
     for text in texts:
         try:
             result = model(text)
             if isinstance(result, list):
-                result = result[0]  # Pega primeiro resultado se for lista
+                result = result[0]
             
             normalized_results.append({
                 'label': result['label'],
@@ -336,7 +372,6 @@ def analyze_sentiment(texts: List[str], language: str = "pt") -> List[Dict[str, 
                 'confidence': result['score']
             })
         except Exception as e:
-            # Fallback em caso de erro
             normalized_results.append({
                 'label': 'neutral',
                 'score': 0.5,
@@ -348,7 +383,7 @@ def analyze_sentiment(texts: List[str], language: str = "pt") -> List[Dict[str, 
 
 def analyze_emotions(texts: List[str], language: str = "pt") -> List[Dict[str, Any]]:
     """
-    Analisa emoções de lista de textos.
+    Analisa emoções de lista de textos com pysentimiento para PT-BR.
     
     Args:
         texts: Lista de textos
@@ -357,15 +392,58 @@ def analyze_emotions(texts: List[str], language: str = "pt") -> List[Dict[str, A
     Returns:
         Lista de análises de emoção
     """
+    # Usa pysentimiento para português brasileiro
+    if language == "pt" and PYSENTIMIENTO_AVAILABLE:
+        try:
+            analyzer = create_analyzer(task="emotion", lang="pt")
+            normalized_results = []
+            
+            for text in texts:
+                try:
+                    result = analyzer.predict(text)
+                    
+                    # Converte pysentimiento output para formato padrão
+                    emotion = result.output
+                    confidence = max(result.probas.values())
+                    
+                    # Mapeia emoções do pysentimiento para português
+                    emotion_map = {
+                        "joy": "alegria",
+                        "sadness": "tristeza", 
+                        "anger": "raiva",
+                        "fear": "medo",
+                        "surprise": "surpresa",
+                        "disgust": "nojo",
+                        "others": "outras"
+                    }
+                    
+                    normalized_results.append({
+                        'emotion': emotion_map.get(emotion, emotion),
+                        'confidence': confidence,
+                        'all_emotions': result.probas
+                    })
+                except Exception as e:
+                    print(f"⚠️ Erro pysentimiento emoções: {e}")
+                    normalized_results.append({
+                        'emotion': 'neutral',
+                        'confidence': 0.5,
+                        'all_emotions': {}
+                    })
+            
+            return normalized_results
+            
+        except Exception as e:
+            print(f"⚠️ Erro ao carregar pysentimiento emoções: {e}")
+    
+    # Fallback para modelos padrão
     model = get_model_for_language_and_task(language, "emotion")
     
-    # Processa cada texto individualmente para evitar erros de batch
     normalized_results = []
     for text in texts:
         try:
             result = model(text)
             if isinstance(result, list):
-                result = result[0]  # Pega primeiro resultado se for lista
+                result = result[0]
             
             normalized_results.append({
                 'emotion': result['label'],
@@ -373,7 +451,6 @@ def analyze_emotions(texts: List[str], language: str = "pt") -> List[Dict[str, A
                 'all_emotions': result if 'score' in result else {}
             })
         except Exception as e:
-            # Fallback em caso de erro
             normalized_results.append({
                 'emotion': 'neutral',
                 'confidence': 0.5,
