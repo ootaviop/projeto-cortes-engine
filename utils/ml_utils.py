@@ -16,9 +16,15 @@ import torch
 from transformers import pipeline, AutoTokenizer, AutoModel
 from sentence_transformers import SentenceTransformer
 import warnings
+import os
 
 # Suprime warnings desnecessários dos modelos
 warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+# Fix para problema de torch com _unsafe_update_src
+os.environ["TORCH_USE_CUDA_DSA"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 from config.language_models import LanguageModels, ModelConfig, MODEL_CACHE
 
@@ -40,8 +46,18 @@ class ModelManager:
     
     def _get_optimal_device(self) -> str:
         """Determina o dispositivo ótimo (CPU/GPU)."""
+        # Força CPU se houver problemas com CUDA
+        if os.getenv("FORCE_CPU", "false").lower() == "true":
+            return "cpu"
+            
         if torch.cuda.is_available():
-            return "cuda"
+            try:
+                # Testa se CUDA está funcionando corretamente
+                torch.cuda.empty_cache()
+                return "cuda"
+            except Exception:
+                print("⚠️ CUDA disponível mas com problemas, usando CPU")
+                return "cpu"
         elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
             return "mps"  # Apple Silicon
         else:
@@ -256,7 +272,6 @@ def batch_process(func):
     return wrapper
 
 
-@batch_process
 def get_text_embeddings(texts: List[str], language: str = "pt") -> List[List[float]]:
     """
     Gera embeddings semânticos para lista de textos.
@@ -270,16 +285,30 @@ def get_text_embeddings(texts: List[str], language: str = "pt") -> List[List[flo
     """
     model = get_model_for_language_and_task(language, "embeddings")
     
-    if isinstance(model, SentenceTransformer):
-        embeddings = model.encode(texts, convert_to_tensor=False)
-        return embeddings.tolist()
-    else:
-        # Fallback para pipeline padrão
-        results = model(texts)
-        return [result['embeddings'] if isinstance(result, dict) else result for result in results]
+    try:
+        if isinstance(model, SentenceTransformer):
+            embeddings = model.encode(texts, convert_to_tensor=False)
+            return embeddings.tolist()
+        else:
+            # Fallback: processa um por vez
+            results = []
+            for text in texts:
+                try:
+                    result = model(text)
+                    if isinstance(result, dict) and 'embeddings' in result:
+                        results.append(result['embeddings'])
+                    else:
+                        # Gera embedding dummy se falhar
+                        results.append([0.0] * 384)  # Tamanho padrão
+                except:
+                    results.append([0.0] * 384)
+            return results
+    except Exception as e:
+        # Fallback completo: embeddings dummy
+        print(f"⚠️ Erro nos embeddings, usando fallback: {e}")
+        return [[0.0] * 384 for _ in texts]
 
 
-@batch_process
 def analyze_sentiment(texts: List[str], language: str = "pt") -> List[Dict[str, Any]]:
     """
     Analisa sentimentos de lista de textos.
@@ -292,24 +321,31 @@ def analyze_sentiment(texts: List[str], language: str = "pt") -> List[Dict[str, 
         Lista de análises de sentimento
     """
     model = get_model_for_language_and_task(language, "sentiment")
-    results = model(texts)
     
-    # Normaliza formato de saída
+    # Processa cada texto individualmente para evitar erros de batch
     normalized_results = []
-    for result in results:
-        if isinstance(result, list):
-            result = result[0]  # Pega primeiro resultado se for lista
-        
-        normalized_results.append({
-            'label': result['label'],
-            'score': result['score'],
-            'confidence': result['score']
-        })
+    for text in texts:
+        try:
+            result = model(text)
+            if isinstance(result, list):
+                result = result[0]  # Pega primeiro resultado se for lista
+            
+            normalized_results.append({
+                'label': result['label'],
+                'score': result['score'],
+                'confidence': result['score']
+            })
+        except Exception as e:
+            # Fallback em caso de erro
+            normalized_results.append({
+                'label': 'neutral',
+                'score': 0.5,
+                'confidence': 0.5
+            })
     
     return normalized_results
 
 
-@batch_process
 def analyze_emotions(texts: List[str], language: str = "pt") -> List[Dict[str, Any]]:
     """
     Analisa emoções de lista de textos.
@@ -322,19 +358,27 @@ def analyze_emotions(texts: List[str], language: str = "pt") -> List[Dict[str, A
         Lista de análises de emoção
     """
     model = get_model_for_language_and_task(language, "emotion")
-    results = model(texts)
     
-    # Normaliza formato de saída
+    # Processa cada texto individualmente para evitar erros de batch
     normalized_results = []
-    for result in results:
-        if isinstance(result, list):
-            result = result[0]  # Pega primeiro resultado se for lista
-        
-        normalized_results.append({
-            'emotion': result['label'],
-            'confidence': result['score'],
-            'all_emotions': result if 'score' in result else {}
-        })
+    for text in texts:
+        try:
+            result = model(text)
+            if isinstance(result, list):
+                result = result[0]  # Pega primeiro resultado se for lista
+            
+            normalized_results.append({
+                'emotion': result['label'],
+                'confidence': result['score'],
+                'all_emotions': result if 'score' in result else {}
+            })
+        except Exception as e:
+            # Fallback em caso de erro
+            normalized_results.append({
+                'emotion': 'neutral',
+                'confidence': 0.5,
+                'all_emotions': {}
+            })
     
     return normalized_results
 

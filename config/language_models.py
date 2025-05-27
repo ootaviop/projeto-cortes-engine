@@ -48,7 +48,7 @@ class LanguageModels:
         ),
         "emotion": ModelConfig(
             name="pt_emotion",
-            model_id="cardiffnlp/twitter-xlm-roberta-base-emotion",
+            model_id="neuralmind/bert-base-portuguese-cased",
             task="text-classification",
             confidence_threshold=0.6
         )
